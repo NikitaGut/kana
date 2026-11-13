@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f3ea">
+  <title>Кана — изучаем японскую азбуку</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="Кана, на главную"><span class="brand-mark">あ</span><span>кана<small>японская азбука</small></span></a>
+    <p class="header-note">Немного каждый день — и всё получится.</p>
+    <button class="reset-link" id="reset" type="button">Сбросить прогресс</button>
+  </header>
+  <main class="page">
+    <div class="intro"><div><p class="eyebrow">Ваш путь к японскому</p><h1>Шаг за шагом, <span>знак за знаком.</span></h1><p>Изучайте по одной строке и закрепляйте знания небольшой проверкой.</p></div><div class="intro-mark" aria-hidden="true">かな<span>学</span></div></div>
+    <div class="script-switch" role="group" aria-label="Выберите азбуку"><button type="button" data-script="hiragana">Хирагана <span>ひらがな</span></button><button type="button" data-script="katakana">Катакана <span>カタカナ</span></button></div>
+    <div class="workspace">
+      <aside class="sidebar" aria-label="Строки азбуки"><div class="side-heading"><div><p class="eyebrow">Ваш маршрут</p><h2>Строки азбуки</h2></div><span class="side-flower" aria-hidden="true">✳</span></div><p class="side-description">Пройдите проверку, чтобы открыть следующую строку.</p><div id="lesson-list" class="lesson-list"></div><div class="progress-block"><div class="progress-label"><span>Ваш прогресс</span><strong id="progress-text"></strong></div><progress id="progress" max="11" value="0"></progress><p id="storage-note" class="storage-note" hidden>Прогресс не сохраняется в этом браузере.</p></div></aside>
+      <section id="content" class="content" aria-live="polite"></section>
+    </div>
+    <footer><span>少しずつ、毎日。</span><span>Понемногу, каждый день.</span></footer>
+  </main>
+</body>
+</html>
