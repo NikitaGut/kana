@@ -68,20 +68,34 @@ function rowTitle() { return selected === 10 ? 'Знак n' : `Строка ${re
 function renderStudy() {
   quiz = null;
   const symbols = [...scripts[script].rows[selected]];
-  content.innerHTML = `<div class="content-top"><div><p class="eyebrow">${scripts[script].name} · урок ${selected + 1}</p><h2>${rowTitle()}</h2><p>Познакомьтесь со знаками, прежде чем проверить себя.</p></div><span class="badge">${symbols.length} ${symbols.length === 1 ? 'знак' : symbols.length < 5 ? 'знака' : 'знаков'}</span></div><div class="study-area"><div class="writing-box" aria-hidden="true"><span lang="ja">${symbols[0]}</span></div><div class="study-copy"><h3>Начнём знакомство</h3><p>Посмотрите на каждый знак и его чтение. Произнесите их вслух несколько раз — так запомнить будет легче.</p></div></div><div class="kana-grid">${symbols.map((symbol, i) => `<div class="kana-cell"><strong lang="ja">${symbol}</strong><span>${readings[selected][i]}</span></div>`).join('')}</div><button class="primary" id="start-quiz">Начать проверку</button><span class="hint">Все ответы верны — следующая строка открыта</span>`;
-  document.querySelector('#start-quiz').addEventListener('click', startQuiz);
+  content.innerHTML = `<div class="content-top"><div><p class="eyebrow">${scripts[script].name} · урок ${selected + 1}</p><h2>${rowTitle()}</h2><p>Познакомьтесь со знаками, прежде чем проверить себя.</p></div><span class="badge">${symbols.length} ${symbols.length === 1 ? 'знак' : symbols.length < 5 ? 'знака' : 'знаков'}</span></div><div class="study-area"><div class="writing-box" aria-hidden="true"><span lang="ja">${symbols[0]}</span></div><div class="study-copy"><h3>Начнём знакомство</h3><p>Посмотрите на каждый знак и его чтение. Произнесите их вслух несколько раз — так запомнить будет легче.</p></div></div><div class="kana-grid">${symbols.map((symbol, i) => `<div class="kana-cell"><strong lang="ja">${symbol}</strong><span>${readings[selected][i]}</span></div>`).join('')}</div><button class="primary" id="start-quiz">Начать проверку</button><span class="hint">Все ответы верны — следующая строка открыта</span>${progress[script].length ? `<div style="margin-top:32px"><button class="secondary" id="start-review-quiz">Тест по всем пройденным строкам (${progress[script].length})</button></div>` : ''}`;
+  // Pass an explicit mode: an event listener forwards the click event as the
+  // first argument, which would otherwise be treated as truthy allPassed.
+  document.querySelector('#start-quiz').addEventListener('click', () => startQuiz(false));
+  document.querySelector('#start-review-quiz')?.addEventListener('click', () => startQuiz(true));
 }
-function startQuiz() {
-  const symbols = [...scripts[script].rows[selected]];
-  quiz = { questions: shuffle(symbols.map((symbol, i) => ({ symbol, answer: readings[selected][i] }))), index: 0, correct: 0, answered: false };
+function startQuiz(allPassed = false) {
+  const rows = allPassed ? progress[script] : [selected];
+  const questions = rows.flatMap(row => [...scripts[script].rows[row]].map((symbol, i) => ({ symbol, answer: readings[row][i], row })));
+  quiz = { questions: shuffle(questions), index: 0, correct: 0, answered: false, allPassed };
   renderQuestion();
 }
 function renderQuestion() {
   const question = quiz.questions[quiz.index];
   quiz.answered = false;
-  const distractors = shuffle([...new Set(readings.flat())].filter(value => value !== question.answer)).slice(0, 3);
+  // Keep answer choices within the current lesson whenever possible. This
+  // removes the easy cue where the right answer is the only one from the row.
+  const lessonReadings = readings[question.row];
+  const distractors = shuffle(lessonReadings.filter(value => value !== question.answer)).slice(0, 3);
+  // Short lessons (ya, wa, and n) need a few extra choices from the full set.
+  if (distractors.length < 3) {
+    const extras = shuffle([...new Set(readings.flat())].filter(value =>
+      value !== question.answer && !distractors.includes(value)
+    ));
+    distractors.push(...extras.slice(0, 3 - distractors.length));
+  }
   const options = shuffle([question.answer, ...distractors]);
-  content.innerHTML = `<div class="content-top"><div><p class="eyebrow">${scripts[script].name} · ${rowTitle()}</p><h2>Проверим знания</h2><p>Выберите правильное чтение знака.</p></div><span class="badge">${quiz.index + 1} из ${quiz.questions.length}</span></div><div class="quiz-layout"><div class="writing-box"><span lang="ja">${question.symbol}</span></div><div class="quiz-question"><h3>Как читается этот знак?</h3><p>Выберите один из вариантов ниже.</p><div class="options">${options.map(option => `<button class="option" data-answer="${option}">${option}</button>`).join('')}</div><p class="feedback" role="status"></p><button class="primary" id="next-question" hidden>${quiz.index === quiz.questions.length - 1 ? 'Посмотреть результат' : 'Следующий знак'}</button></div></div>`;
+  content.innerHTML = `<div class="content-top"><div><p class="eyebrow">${scripts[script].name} · ${quiz.allPassed ? 'повторение пройденных строк' : rowTitle()}</p><h2>Проверим знания</h2><p>Выберите правильное чтение знака.</p></div><span class="badge">${quiz.index + 1} из ${quiz.questions.length}</span></div><div class="quiz-layout"><div class="writing-box"><span lang="ja">${question.symbol}</span></div><div class="quiz-question"><h3>Как читается этот знак?</h3><p>Выберите один из вариантов ниже.</p><div class="options">${options.map(option => `<button class="option" data-answer="${option}">${option}</button>`).join('')}</div><p class="feedback" role="status"></p><button class="primary" id="next-question" hidden>${quiz.index === quiz.questions.length - 1 ? 'Посмотреть результат' : 'Следующий знак'}</button></div></div>`;
   content.querySelectorAll('[data-answer]').forEach(button => button.addEventListener('click', () => answerQuestion(button)));
   document.querySelector('#next-question').addEventListener('click', () => {
     quiz.index++;
@@ -108,13 +122,13 @@ function finishQuiz() {
   const score = quiz.correct;
   const total = quiz.questions.length;
   const success = score === total;
-  if (success && !progress[script].includes(selected)) {
+  if (success && !quiz.allPassed && !progress[script].includes(selected)) {
     progress[script].push(selected);
     saveProgress();
   }
   renderNavigation();
   const last = selected === readings.length - 1;
-  content.innerHTML = `<div class="content-top"><div><p class="eyebrow">${scripts[script].name} · ${rowTitle()}</p><h2>Проверка завершена</h2><p>Правильных ответов: ${score} из ${total}.</p></div></div><div class="result"><div class="result-icon" aria-hidden="true">${success ? '✓' : '↺'}</div><h3>${success ? (last ? 'Азбука пройдена!' : 'Строка изучена!') : 'Попробуем ещё раз?'}</h3><p>${success ? (last ? 'Вы прошли все строки этой азбуки. Возвращайтесь к ним, чтобы повторить знаки.' : 'Вы правильно ответили на все вопросы. Следующая строка уже открыта.') : 'Чтобы открыть следующую строку, нужно правильно ответить на все вопросы. Повторите знаки и попробуйте снова.'}</p><div class="result-actions">${success && !last ? '<button class="primary" id="next-lesson">Следующая строка</button>' : ''}<button class="${success && !last ? 'secondary' : 'primary'}" id="review">Повторить строку</button></div></div>`;
+  content.innerHTML = `<div class="content-top"><div><p class="eyebrow">${scripts[script].name} · ${rowTitle()}</p><h2>Проверка завершена</h2><p>Правильных ответов: ${score} из ${total}.</p></div></div><div class="result"><div class="result-icon" aria-hidden="true">${success ? '✓' : '↺'}</div><h3>${success ? (quiz.allPassed ? 'Повторение завершено!' : last ? 'Азбука пройдена!' : 'Строка изучена!') : 'Попробуем ещё раз?'}</h3><p>${success ? (quiz.allPassed ? 'Вы правильно ответили на все вопросы по пройденным строкам.' : last ? 'Вы прошли все строки этой азбуки. Возвращайтесь к ним, чтобы повторить знаки.' : 'Вы правильно ответили на все вопросы. Следующая строка уже открыта.') : quiz.allPassed ? 'Повторите знаки и попробуйте пройти общий тест ещё раз.' : 'Чтобы открыть следующую строку, нужно правильно ответить на все вопросы. Повторите знаки и попробуйте снова.'}</p><div class="result-actions">${success && !quiz.allPassed && !last ? '<button class="primary" id="next-lesson">Следующая строка</button>' : ''}<button class="${success && !quiz.allPassed && !last ? 'secondary' : 'primary'}" id="review">${quiz.allPassed ? 'Вернуться к уроку' : 'Повторить строку'}</button></div></div>`;
   document.querySelector('#review').addEventListener('click', renderStudy);
   document.querySelector('#next-lesson')?.addEventListener('click', () => { selected++; renderNavigation(); renderStudy(); });
 }
